@@ -1,88 +1,121 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import supabase from '../supabaseClient'; // Import supabase client
+import { UserEventCard } from './UserEventCard'; // Use named import
+import TicketSelection from './TicketSelection'; // Import TicketSelection component
+import bKashQRCode from './bkash_qr.jpg'; // Import the QR code image for bKash
 
-/**
- * Event Card Component
- * Displays the event information and a button to view more details.
- * @param {object} event - The event data to be displayed.
- * @param {function} onSelectEvent - Callback function to handle event selection.
- */
-const EventCard = ({ event, onSelectEvent }) => (
-    <div className="bg-white p-4 rounded-lg shadow-md mb-4">
-        <h3 className="text-xl font-semibold text-gray-800">{event.title}</h3>
-        <p><strong>Venue:</strong> {event.venue}</p>
-        <p><strong>Date:</strong> {event.date}</p>
-        <button
-            className="mt-4 bg-indigo-500 text-white py-2 px-4 rounded-md hover:bg-indigo-600 transition"
-            onClick={() => onSelectEvent(event)}
-        >
-            View Details
-        </button>
-    </div>
-);
+// Strategy Pattern: Payment Method Strategies
+const CashPayment = ({ selectedEvent, ticketType, userId }) => {
+    return supabase
+        .from('tickets')
+        .insert([{
+            event_id: selectedEvent.id,
+            user_id: userId,
+            ticket_type: ticketType,
+            payment_type: 'Paid on Cash',
+        }]);
+};
 
-/**
- * TicketSelection Component
- * Displays the ticket selection options and handles ticket type selection.
- * @param {object} event - The event data to display ticket prices.
- * @param {string} ticketType - The selected ticket type.
- * @param {function} onTicketSelect - Callback function to update the ticket type.
- */
-const TicketSelection = ({ event, ticketType, onTicketSelect }) => (
-    <div className="mt-4">
-        <label className="block text-lg font-semibold text-gray-700">Select Ticket:</label>
-        <select
-            value={ticketType}
-            onChange={(e) => onTicketSelect(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-        >
-            <option value="">--Select--</option>
-            <option value="VIP">VIP (${event.vipPrice})</option>
-            <option value="Normal">Normal (${event.normalPrice})</option>
-        </select>
-    </div>
-);
+const bKashPayment = ({ selectedEvent, ticketType, userId }) => {
+    return supabase
+        .from('tickets')
+        .insert([{
+            event_id: selectedEvent.id,
+            user_id: userId,
+            ticket_type: ticketType,
+            payment_type: 'Paid via bKash',
+        }]);
+};
 
-/**
- * UserDashboard Component
- * Displays the user's dashboard with events, event details, and ticket purchase functionality.
- */
+const PaymentContext = {
+    Cash: CashPayment,
+    bKash: bKashPayment,
+};
+
+// Factory Pattern: Create Event Card based on event type
+const createEventCard = (event, setSelectedEvent) => {
+    return <UserEventCard key={event.id} event={event} onSelectEvent={setSelectedEvent} />;
+};
+
 function UserDashboard() {
-    const [selectedEvent, setSelectedEvent] = useState(null); // Track the selected event for details view
+    const [events, setEvents] = useState([]); // Store events fetched from Supabase
+    const [selectedEvent, setSelectedEvent] = useState(null); // Track selected event
     const [ticketType, setTicketType] = useState(''); // Track selected ticket type (VIP/Normal)
+    const [showQRCode, setShowQRCode] = useState(false); // Show QR code for bKash payment
 
-    // Mock data representing available events
-    const events = [
-        { id: 1, title: 'Music Fest', date: '2024-12-10', vipPrice: 100, normalPrice: 50, venue: 'City Hall' },
-        { id: 2, title: 'Tech Conference', date: '2024-12-15', vipPrice: 200, normalPrice: 100, venue: 'Convention Center' },
-    ];
+    // Observer Pattern: Manage event fetching externally (could be expanded to a global state manager like Redux)
+    const fetchEvents = async () => {
+        try {
+            const { data, error } = await supabase.from('events').select('*');
+            if (error) throw error;
+            setEvents(data); // Set events data in state
+        } catch (error) {
+            console.error('Error fetching events:', error);
+        }
+    };
 
-    /**
-     * Handle ticket purchase
-     * Validates the ticket type selection and redirects the user to the payment page.
-     */
-    const handlePurchase = () => {
+    useEffect(() => {
+        fetchEvents(); // Fetch events when the component mounts
+    }, []);
+
+    // Common function to handle ticket purchases
+    const handleTicketPurchase = async (paymentMethod) => {
         if (!ticketType) {
             alert('Please select a ticket type (VIP or Normal).');
             return;
         }
-        alert(`Redirecting to payment page for ${ticketType} ticket...`);
-        window.location.href = '/payment'; // Simulated payment page redirection
+
+        try {
+            const { data: user, error } = await supabase.auth.getUser(); // Get the current logged-in user
+            if (error || !user) {
+                alert('Please log in to purchase tickets.');
+                return;
+            }
+
+            if (!selectedEvent) {
+                alert('Please select an event to purchase a ticket.');
+                return;
+            }
+
+            console.log('Inserting ticket:', {
+                event_id: selectedEvent.id,
+                user_id: user.id,
+                ticket_type: ticketType,
+                payment_type: paymentMethod === 'bKash' ? 'Paid via bKash' : 'Paid on Cash',
+            });
+
+            // Using the Strategy Pattern to handle different payment methods
+            const paymentFunction = PaymentContext[paymentMethod];
+            const { error: insertError } = await paymentFunction({
+                selectedEvent,
+                ticketType,
+                userId: user.id,
+            });
+
+            if (insertError) throw insertError;
+
+            if (paymentMethod === 'bKash') {
+                setShowQRCode(true); // Show QR code after successful purchase with bKash
+            } else {
+                alert('Ticket purchased successfully. Please pay at the stall to get your ticket.');
+            }
+        } catch (error) {
+            console.error('Error purchasing ticket:', error);
+            alert('Error purchasing ticket. Please try again.');
+        }
     };
 
-    /**
-     * Handle user logout
-     * Displays a logout confirmation and redirects the user to the homepage.
-     */
-    const handleLogout = () => {
+    // Handle customer logout
+    const handleLogout = async () => {
+        await supabase.auth.signOut(); // Sign out the user
         alert('You have been logged out.');
-        window.location.href = '/'; // Simulated logout redirect
+        window.location.href = '/'; // Redirect to homepage (simulated)
     };
 
     return (
         <div className="dashboard-container bg-gray-50 min-h-screen p-6">
-            {/* Dashboard header with logout button */}
             <div className="dashboard-header flex justify-between items-center mb-8">
-                <h1 className="text-2xl font-bold text-gray-800">Welcome, User</h1>
+                <h1 className="text-2xl font-bold text-gray-800">Welcome, Customer</h1>
                 <button
                     className="bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600 transition"
                     onClick={handleLogout}
@@ -91,39 +124,54 @@ function UserDashboard() {
                 </button>
             </div>
 
-            {/* Event list section */}
             <div className="events-list">
                 <h2 className="text-xl font-semibold text-gray-800 mb-6">Available Events</h2>
-                {events.map((event) => (
-                    <EventCard key={event.id} event={event} onSelectEvent={setSelectedEvent} />
-                ))}
+                {events.length === 0 ? (
+                    <p>No events available at the moment.</p>
+                ) : (
+                    events.map((event) => createEventCard(event, setSelectedEvent))
+                )}
             </div>
 
-            {/* Event details and ticket purchase section */}
             <div className="event-details mt-6">
                 {selectedEvent ? (
                     <>
                         <h2 className="text-2xl font-semibold text-gray-800 mb-4">Event Details</h2>
                         <p><strong>Title:</strong> {selectedEvent.title}</p>
-                        <p><strong>Date:</strong> {selectedEvent.date}</p>
+                        <p><strong>Date:</strong> {new Date(selectedEvent.date).toLocaleDateString()}</p>
                         <p><strong>Venue:</strong> {selectedEvent.venue}</p>
-                        <p><strong>VIP Price:</strong> ${selectedEvent.vipPrice}</p>
-                        <p><strong>Normal Price:</strong> ${selectedEvent.normalPrice}</p>
+                        <p><strong>VIP Price:</strong> ${selectedEvent.vip_price}</p>
+                        <p><strong>Normal Price:</strong> ${selectedEvent.normal_price}</p>
 
-                        {/* Ticket selection */}
                         <TicketSelection
                             event={selectedEvent}
                             ticketType={ticketType}
                             onTicketSelect={setTicketType}
                         />
 
-                        {/* Purchase button */}
-                        <button
-                            className="mt-6 bg-green-500 text-white py-2 px-6 rounded-md hover:bg-green-600 transition"
-                            onClick={handlePurchase}
-                        >
-                            Purchase Ticket
-                        </button>
+                        <div className="flex space-x-4 mt-6">
+                            <button
+                                className="bg-yellow-500 text-white py-2 px-6 rounded-md hover:bg-yellow-600 transition"
+                                onClick={() => handleTicketPurchase('Cash')}
+                            >
+                                Pay with Cash
+                            </button>
+                            <button
+                                className="bg-pink-500 text-white py-2 px-6 rounded-md hover:bg-pink-600 transition"
+                                onClick={() => handleTicketPurchase('bKash')}
+                            >
+                                Pay with bKash
+                            </button>
+                        </div>
+
+                        {showQRCode && (
+                            <div className="qr-code mt-6">
+                                <h3 className="text-lg font-semibold text-gray-800">
+                                    Scan this QR Code to complete your payment:
+                                </h3>
+                                <img src={bKashQRCode} alt="bKash QR Code" className="mt-4 w-48 h-48" />
+                            </div>
+                        )}
                     </>
                 ) : (
                     <p className="text-gray-600">Select an event to view details.</p>

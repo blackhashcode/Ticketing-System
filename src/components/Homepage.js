@@ -1,12 +1,13 @@
 import React from 'react';
 
 /**
- * Factory Component for Button
+ * ButtonFactory - Factory method to create buttons with different styles.
  * @param {string} label - The text to display on the button.
  * @param {string} className - Additional Tailwind CSS classes for styling the button.
  * @param {function} onClick - Callback function to handle button clicks.
  */
-const Button = ({ label, className, onClick }) => {
+const ButtonFactory = ({ label, className, onClick }) => {
+    // You could extend this factory with more button styles if necessary
     return React.createElement(
         'button',
         {
@@ -18,10 +19,35 @@ const Button = ({ label, className, onClick }) => {
 };
 
 /**
+ * Singleton - A simple Singleton pattern to manage global states.
+ * For example, tracking if the user is logged in.
+ */
+class Singleton {
+    constructor() {
+        if (!Singleton.instance) {
+            this.state = { loggedIn: false }; // Default state
+            Singleton.instance = this;
+        }
+        return Singleton.instance;
+    }
+
+    getState() {
+        return this.state;
+    }
+
+    setState(newState) {
+        this.state = { ...this.state, ...newState };
+    }
+}
+
+/**
  * Homepage Component
  * Displays the main landing page of the website with options to navigate to Login or Signup pages.
  */
 function Homepage() {
+    const singleton = new Singleton();
+    const { loggedIn } = singleton.getState();
+
     return React.createElement(
         'div',
         { className: 'homepage-container bg-gray-50 min-h-screen flex flex-col items-center justify-center p-6' },
@@ -41,17 +67,35 @@ function Homepage() {
             'div',
             { className: 'homepage-buttons flex gap-4' },
             // Login Button
-            React.createElement(Button, {
+            React.createElement(ButtonFactory, {
                 label: 'Login',
                 className: 'bg-indigo-500 hover:bg-indigo-600',
-                onClick: () => (window.location.href = '/login'),
+                onClick: () => {
+                    // Simulate login process and update Singleton state
+                    singleton.setState({ loggedIn: true });
+                    window.location.href = '/login';
+                },
             }),
             // Signup Button
-            React.createElement(Button, {
+            React.createElement(ButtonFactory, {
                 label: 'Signup',
                 className: 'bg-green-500 hover:bg-green-600',
-                onClick: () => (window.location.href = '/signup'),
-            })
+                onClick: () => {
+                    // Simulate signup process and update Singleton state
+                    singleton.setState({ loggedIn: false });
+                    window.location.href = '/signup';
+                },
+            }),
+            // Conditional Button for Logged In User (Only if loggedIn is true)
+            loggedIn &&
+                React.createElement(ButtonFactory, {
+                    label: 'Logout',
+                    className: 'bg-red-500 hover:bg-red-600',
+                    onClick: () => {
+                        singleton.setState({ loggedIn: false });
+                        window.location.href = '/logout'; // Simulate logout process
+                    },
+                })
         )
     );
 }

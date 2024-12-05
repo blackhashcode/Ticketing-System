@@ -1,13 +1,50 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import supabase from '../supabaseClient';
 
-/**
- * Factory Component for Input Fields
- * @param {string} id - The input field's unique identifier.
- * @param {string} type - The type of input (e.g., text, email, password).
- * @param {string} value - The value of the input field.
- * @param {function} onChange - Handler for the input field's onChange event.
- * @param {string} placeholder - Placeholder text for the input field.
- */
+// Strategy Pattern: Different Signup Strategies
+const EmailPasswordSignupStrategy = async (email, password, username, role) => {
+    const { user, error: signupError } = await supabase.auth.signUp({
+        email,
+        password,
+    });
+
+    if (signupError) {
+        throw signupError;
+    }
+
+    // Insert user data (username and role) into the Supabase "users" table without the password
+    const { data, error: insertError } = await supabase
+        .from('users')
+        .insert([{ username, email, role }]);
+
+    if (insertError) {
+        throw insertError;
+    }
+
+    return user;
+};
+
+// Observer Pattern: Auth State Manager for error and loading states
+class AuthStateManager {
+    constructor() {
+        if (!AuthStateManager.instance) {
+            this.state = { loading: false, errorMessage: '', user: null };
+            AuthStateManager.instance = this;
+        }
+        return AuthStateManager.instance;
+    }
+
+    getState() {
+        return this.state;
+    }
+
+    setState(newState) {
+        this.state = { ...this.state, ...newState };
+    }
+}
+
+// InputField component
 const InputField = ({ id, type, value, onChange, placeholder }) => {
     return (
         <div className="mb-4">
@@ -27,29 +64,30 @@ const InputField = ({ id, type, value, onChange, placeholder }) => {
     );
 };
 
-/**
- * Signup Component
- * This component renders a signup form where users can create a new account by providing a username, email, and password.
- */
 function Signup() {
-    // States to store user input for username, email, password, and role
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [role, setRole] = useState('customer'); // Default role is 'customer'
+    const [error, setError] = useState(null); // To store any error message
+    const [loading, setLoading] = useState(false); // To handle loading state
+    const navigate = useNavigate();  // Initialize useNavigate hook
 
-    /**
-     * Handles form submission.
-     * This function can be extended to send registration data to the backend.
-     * @param {Event} e - The form submission event.
-     */
-    const handleSubmit = (e) => {
+    const authStateManager = new AuthStateManager(); // Observer pattern for state management
+    const { loading: globalLoading, errorMessage: globalError } = authStateManager.getState();
+
+    const handleSubmit = async (e, signupStrategy) => {
         e.preventDefault(); // Prevents page reload on form submission
+        authStateManager.setState({ loading: true }); // Set loading state
 
-        // Log user input to the console (for development purposes)
-        console.log(`Username: ${username}, Email: ${email}, Password: ${password}, Role: ${role}`);
-
-        // TODO: Integrate with backend registration API
+        try {
+            await signupStrategy(email, password, username, role);
+            navigate('/login');  // Redirect to login after successful signup
+        } catch (error) {
+            setError(error.message || 'Signup failed');
+        } finally {
+            authStateManager.setState({ loading: false }); // Reset loading state
+        }
     };
 
     return (
@@ -58,9 +96,9 @@ function Signup() {
                 <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Signup Here!!</h2>
                 <p className="text-center text-gray-600 mb-6">Enter your credentials to create an account.</p>
 
-                {/* Signup form */}
-                <form onSubmit={handleSubmit}>
-                    {/* Username input */}
+                {globalError && <p className="text-red-500 text-center mb-4">{globalError}</p>} {/* Display error message */}
+
+                <form onSubmit={(e) => handleSubmit(e, EmailPasswordSignupStrategy)}>
                     <InputField
                         id="username"
                         type="text"
@@ -68,8 +106,6 @@ function Signup() {
                         onChange={(e) => setUsername(e.target.value)}
                         placeholder="Enter your username"
                     />
-
-                    {/* Email input */}
                     <InputField
                         id="email"
                         type="email"
@@ -77,8 +113,6 @@ function Signup() {
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="Enter your email"
                     />
-
-                    {/* Password input */}
                     <InputField
                         id="password"
                         type="password"
@@ -86,8 +120,6 @@ function Signup() {
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter your password"
                     />
-
-                    {/* Role selection */}
                     <div className="mb-6">
                         <label className="block text-gray-700 font-semibold mb-2">Select Role:</label>
                         <div className="flex items-center">
@@ -118,16 +150,15 @@ function Signup() {
                         </div>
                     </div>
 
-                    {/* Submit button */}
                     <button
                         type="submit"
                         className="w-full bg-indigo-500 text-white font-semibold py-2 px-4 rounded-md shadow-md hover:bg-indigo-600 transition"
+                        disabled={globalLoading}
                     >
-                        Signup
+                        {globalLoading ? 'Signing Up...' : 'Signup'}
                     </button>
                 </form>
 
-                {/* Google Authentication Button */}
                 <button
                     type="button"
                     className="w-full mt-4 bg-red-500 text-white font-semibold py-2 px-4 rounded-md shadow-md hover:bg-red-600 transition"
@@ -136,7 +167,6 @@ function Signup() {
                     Signup with Google
                 </button>
 
-                {/* Additional options */}
                 <p className="text-sm text-gray-600 mt-4 text-center">
                     Already have an account?{' '}
                     <a href="/login" className="text-indigo-500 hover:underline">
