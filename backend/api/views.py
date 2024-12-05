@@ -2,8 +2,6 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied
 from .models import User, Event, Ticket, Payment, CashPayment, bKashPayment, PaymentContext
 from .serializers import UserSerializer, EventSerializer, TicketSerializer, PaymentSerializer
 
@@ -22,13 +20,6 @@ class UserViewSet(viewsets.ModelViewSet):
         # You can add any extra deletion logic for related objects if needed
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
-
-class IsOrganizer(IsAuthenticated):
-    def has_permission(self, request, view):
-        if request.user.role == 'organizer':  # Only organizers can create events
-            return True
-        raise PermissionDenied("You must be an organizer to create events.")
 
 
 class EventViewSet(viewsets.ModelViewSet):
@@ -45,14 +36,6 @@ class EventViewSet(viewsets.ModelViewSet):
         if date:
             queryset = queryset.filter(date=date)
         return queryset
-
-    def perform_create(self, serializer):
-        """Create event with VIP and Normal ticket limits."""
-        organizer = self.request.user
-        if organizer.role != 'organizer':
-            raise PermissionDenied("Only organizers can create events.")
-        
-        event = serializer.save(organizer=organizer)
 
     def update(self, request, *args, **kwargs):
         """Override update to handle event update."""

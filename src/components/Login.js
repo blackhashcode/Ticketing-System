@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import './Login.css';
 
 /**
  * Login Component
@@ -7,70 +6,70 @@ import './Login.css';
  * Based on the user's role, they will be redirected to the appropriate dashboard (User or Organizer).
  */
 function Login() {
-    // States to store user input for email and password
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [errorMessage, setErrorMessage] = useState(''); // For displaying any error messages
+    const [errorMessage, setErrorMessage] = useState('');
 
-    /**
-     * Handles form submission and user authentication.
-     * For demonstration, mock roles are used to redirect to the respective dashboard.
-     * In a real application, authentication will involve backend API calls.
-     * @param {Event} e - The form submission event.
-     */
     const handleSubmit = (e) => {
-        e.preventDefault(); // Prevents page reload on form submission
+        e.preventDefault();
 
-        // Mock logic to determine the user's role based on email (replace with API logic)
+        // Mock login validation
         if (email === 'user@example.com' && password === 'user123') {
-            window.location.href = '/user-dashboard'; // Redirect to User Dashboard
+            window.location.href = '/user-dashboard';
         } else if (email === 'organizer@example.com' && password === 'organizer123') {
-            window.location.href = '/organizer-dashboard'; // Redirect to Organizer Dashboard
+            window.location.href = '/organizer-dashboard';
         } else {
-            // Display an error message if credentials are invalid
             setErrorMessage('Invalid email or password. Please try again.');
         }
     };
 
     return (
-        <div className="login-container">
-            <h2>Login</h2>
+        <div className="flex items-center justify-center min-h-screen bg-gray-100">
+            <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
+                <h2 className="text-2xl font-bold text-center text-gray-700">Login</h2>
+                {errorMessage && <p className="text-red-500 text-center mb-4">{errorMessage}</p>}
+                
+                <form onSubmit={handleSubmit}>
+                    <div className="mb-4">
+                        <label htmlFor="email" className="block text-gray-700">Email</label>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            value={email} 
+                            onChange={(e) => setEmail(e.target.value)} 
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            placeholder="Enter your email" 
+                            required 
+                        />
+                    </div>
+                    
+                    <div className="mb-6">
+                        <label htmlFor="password" className="block text-gray-700">Password</label>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            value={password} 
+                            onChange={(e) => setPassword(e.target.value)} 
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            placeholder="Enter your password" 
+                            required 
+                        />
+                    </div>
 
-            {/* Error message */}
-            {errorMessage && <p className="error-message">{errorMessage}</p>}
+                    <button type="submit" className="w-full p-3 bg-blue-500 text-white rounded-md hover:bg-blue-600">Login</button>
 
-            {/* Login form */}
-            <form onSubmit={handleSubmit} className="login-form">
-                {/* Email input field */}
-                <label htmlFor="email">Email:</label>
-                <input 
-                    id="email" 
-                    type="email" 
-                    value={email} 
-                    onChange={(e) => setEmail(e.target.value)} 
-                    required 
-                    placeholder="Enter your email"
-                />
+                    <div className="mt-4 text-center">
+                        <p>Don't have an account? <a href="/signup" className="text-blue-500">Sign up here</a></p>
+                    </div>
+                </form>
 
-                {/* Password input field */}
-                <label htmlFor="password">Password:</label>
-                <input 
-                    id="password" 
-                    type="password" 
-                    value={password} 
-                    onChange={(e) => setPassword(e.target.value)} 
-                    required 
-                    placeholder="Enter your password"
-                />
-
-                {/* Submit button */}
-                <button type="submit" className="btn">Login</button>
-            </form>
-
-            {/* Additional options */}
-            <p>
-                Don't have an account? <a href="/signup">Sign up here</a>.
-            </p>
+                {/* Google Authentication Button */}
+                <div className="mt-6">
+                    <button className="w-full p-3 bg-red-500 text-white rounded-md hover:bg-red-600">
+                        Login with Google
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
