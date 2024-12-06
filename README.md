@@ -16,11 +16,16 @@ General Description of the Project: making an online event ticketing website for
 
 How many design patterns implemented and their name: (will be added later):
 
-Strategy Pattern /n
+Strategy Pattern
 
-Observer Pattern /n
+Observer Pattern
 
-Singleton Pattern /n
-Factory Pattern/n
-Composite Pattern/n
-Decorator Design Pattern /n
+Singleton Pattern
+
+Factory Pattern
+
+Composite Pattern
+
+Decorator Design Pattern
+
+Proxy Design Pattern
